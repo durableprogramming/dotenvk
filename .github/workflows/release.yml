@@ -1,0 +1,188 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+
+  build-and-package:
+    needs: create-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-gnu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          if [[ "${{ matrix.target }}" == *"musl"* ]]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build binary
+        run: |
+          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]]; then
+            export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+            export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+          fi
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Create tar.gz archive
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf dotenvk-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz dotenvk
+          mv dotenvk-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz ../../../
+
+      - name: Create .deb package (x86_64 only)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          cargo deb --target ${{ matrix.target }}
+          mv target/${{ matrix.target }}/debian/*.deb dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb
+
+      - name: Upload tar.gz to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dotenvk-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz
+          asset_name: dotenvk-${{ needs.create-release.outputs.version }}-${{ matrix.target }}.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload .deb to Release
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb
+          asset_name: dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+  update-package-metadata:
+    needs: [create-release, build-and-package]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update release with checksums
+        run: |
+          echo "Release ${{ needs.create-release.outputs.version }} completed successfully!" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Downloads" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Binary Archives (.tar.gz)" >> release_notes.md
+          echo "- **Linux x86_64 (glibc)**: \`dotenvk-${{ needs.create-release.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz\`" >> release_notes.md
+          echo "- **Linux x86_64 (musl/static)**: \`dotenvk-${{ needs.create-release.outputs.version }}-x86_64-unknown-linux-musl.tar.gz\`" >> release_notes.md
+          echo "- **Linux ARM64**: \`dotenvk-${{ needs.create-release.outputs.version }}-aarch64-unknown-linux-gnu.tar.gz\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Debian Package (.deb)" >> release_notes.md
+          echo "- **Ubuntu/Debian x86_64**: \`dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### From .tar.gz" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "wget https://github.com/durableprogramming/dotenvk/releases/download/${{ needs.create-release.outputs.version }}/dotenvk-${{ needs.create-release.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz" >> release_notes.md
+          echo "tar -xzf dotenvk-${{ needs.create-release.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz" >> release_notes.md
+          echo "sudo mv dotenvk /usr/local/bin/" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### From .deb (Ubuntu/Debian)" >> release_notes.md
+          echo "\`\`\`bash" >> release_notes.md
+          echo "wget https://github.com/durableprogramming/dotenvk/releases/download/${{ needs.create-release.outputs.version }}/dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb" >> release_notes.md
+          echo "sudo dpkg -i dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb" >> release_notes.md
+          echo "\`\`\`" >> release_notes.md
+
+      - name: Update Release Description
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const releaseNotes = fs.readFileSync('release_notes.md', 'utf8');
+            
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ needs.create-release.outputs.release_id }},
+              body: releaseNotes
+            });
