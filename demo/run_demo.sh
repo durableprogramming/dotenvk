@@ -40,10 +40,33 @@ build_dotenvk() {
     fi
 }
 
+# Function to setup demo project
+setup_demo_project() {
+    echo "Setting up demo project..."
+    cd "$SCRIPT_DIR"
+    mkdir -p my-app
+    cd my-app
+    
+    # Create initial .env file
+    cat > .env << 'EOF'
+# Database Configuration
+DATABASE_URL=postgres://localhost/mydb
+DATABASE_POOL_SIZE=10
+
+# Server Configuration
+PORT=3000
+HOST=localhost
+EOF
+    
+    cd "$SCRIPT_DIR"
+    echo "Demo project setup complete."
+}
+
 # Function to clean up any leftover files
 cleanup() {
     echo "Cleaning up..."
     cd "$SCRIPT_DIR"
+    rm -rf my-app
     rm -f .env
     echo "Cleanup complete."
 }
@@ -56,6 +79,9 @@ check_dependencies
 
 # Build the project
 build_dotenvk
+
+# Setup the demo project
+setup_demo_project
 
 # Change to demo directory for recording
 cd "$SCRIPT_DIR"

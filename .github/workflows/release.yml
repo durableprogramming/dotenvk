@@ -105,7 +105,8 @@ jobs:
             export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
           fi
-          cargo build --release --target ${{ matrix.target }}
+           export RUSTFLAGS="-C target-feature=+crt-static" 
+           cargo build --release --target ${{ matrix.target }}
 
       - name: Create tar.gz archive
         run: |
@@ -116,6 +117,7 @@ jobs:
       - name: Create .deb package (x86_64 only)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
+          export RUSTFLAGS="-C target-feature=+crt-static" 
           cargo deb --target ${{ matrix.target }}
           mv target/${{ matrix.target }}/debian/*.deb dotenvk-${{ needs.create-release.outputs.version }}-amd64.deb
 

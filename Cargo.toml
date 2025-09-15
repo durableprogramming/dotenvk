@@ -41,7 +41,7 @@ extended-description = """\
 A pragmatic CLI tool for managing .env files with a focus on simplicity, 
 security, and reliability. Dotenvk provides secure environment variable 
 management with validation, templating, and multiple output formats."""
-depends = "$auto"
+depends = ""
 section = "utils"
 priority = "optional"
 assets = [
