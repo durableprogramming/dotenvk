@@ -6,6 +6,8 @@ A pragmatic CLI tool for managing `.env` files with a focus on simplicity, secur
 
 `dotenvk` provides a straightforward command-line interface for editing environment files. Built with Rust for performance and safety, it handles common tasks like setting variables, generating secure passwords, and exporting configurations.
 
+![Demo](demo/demo.gif)
+
 ## Installation
 
 ```bash
