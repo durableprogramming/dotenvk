@@ -113,7 +113,7 @@ pub fn write_env_file(lines: &[EnvLine]) -> String {
     if content.is_empty() {
         content
     } else {
-        format!("{}\n", content)
+        format!("{content}\n")
     }
 }
 
