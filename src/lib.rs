@@ -13,13 +13,13 @@
 // - Safe file operations with comprehensive error handling
 //
 
+use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+use rand::Rng;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use anyhow::{Context, Result};
-use rand::Rng;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnvLine {
@@ -34,7 +34,7 @@ pub enum EnvLine {
 pub struct Cli {
     #[arg(short, long, default_value = ".env")]
     pub file: PathBuf,
-    
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -108,7 +108,7 @@ pub fn write_env_file(lines: &[EnvLine]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    
+
     // Ensure file ends with a newline
     if content.is_empty() {
         content
@@ -135,15 +135,20 @@ pub fn save_env_file(file_path: &PathBuf, lines: &[EnvLine]) -> Result<()> {
 
 pub fn set_env_vars(lines: &mut Vec<EnvLine>, pairs: Vec<String>) -> Result<()> {
     for pair in pairs {
-        let eq_pos = pair.find('=').ok_or_else(|| {
-            anyhow::anyhow!("Invalid key=value pair: {}", pair)
-        })?;
+        let eq_pos = pair
+            .find('=')
+            .ok_or_else(|| anyhow::anyhow!("Invalid key=value pair: {}", pair))?;
         let key = pair[..eq_pos].trim().to_string();
         let value = pair[eq_pos + 1..].to_string();
-        
+
         let mut found = false;
         for line in lines.iter_mut() {
-            if let EnvLine::KeyValue { key: existing_key, value: existing_value, .. } = line {
+            if let EnvLine::KeyValue {
+                key: existing_key,
+                value: existing_value,
+                ..
+            } = line
+            {
                 if existing_key == &key {
                     *existing_value = value.clone();
                     found = true;
@@ -151,7 +156,7 @@ pub fn set_env_vars(lines: &mut Vec<EnvLine>, pairs: Vec<String>) -> Result<()> 
                 }
             }
         }
-        
+
         if !found {
             lines.push(EnvLine::KeyValue { key, value });
         }
@@ -195,20 +200,24 @@ pub fn get_env_keys(lines: &[EnvLine]) -> Vec<String> {
         .collect()
 }
 
-pub fn generate_random_password(length: usize, include_numeric: bool, include_symbols: bool) -> String {
+pub fn generate_random_password(
+    length: usize,
+    include_numeric: bool,
+    include_symbols: bool,
+) -> String {
     let mut charset: Vec<u8> = Vec::new();
-    
+
     // Always include letters
     charset.extend(b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
-    
+
     if include_numeric {
         charset.extend(b"0123456789");
     }
-    
+
     if include_symbols {
         charset.extend(b"!@#$%^&*()_+-=[]{}|;:,.<>?");
     }
-    
+
     let mut rng = rand::rng();
     (0..length)
         .map(|_| {
@@ -223,11 +232,14 @@ pub fn generate_xkcd_password() -> Result<String> {
         .arg("-d-")
         .output()
         .context("Failed to execute xkcdpass command. Make sure it's installed.")?;
-    
+
     if !output.status.success() {
-        anyhow::bail!("xkcdpass command failed: {}", String::from_utf8_lossy(&output.stderr));
+        anyhow::bail!(
+            "xkcdpass command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
+
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
@@ -248,40 +260,67 @@ mod tests {
     fn test_parse_env_file_basic() {
         let content = "KEY=value\n# Comment\n\nANOTHER_KEY=another_value";
         let result = parse_env_file(content);
-        
+
         assert_eq!(result.len(), 4);
-        assert_eq!(result[0], EnvLine::KeyValue { key: "KEY".to_string(), value: "value".to_string() });
+        assert_eq!(
+            result[0],
+            EnvLine::KeyValue {
+                key: "KEY".to_string(),
+                value: "value".to_string()
+            }
+        );
         assert_eq!(result[1], EnvLine::Comment("# Comment".to_string()));
         assert_eq!(result[2], EnvLine::Empty("".to_string()));
-        assert_eq!(result[3], EnvLine::KeyValue { key: "ANOTHER_KEY".to_string(), value: "another_value".to_string() });
+        assert_eq!(
+            result[3],
+            EnvLine::KeyValue {
+                key: "ANOTHER_KEY".to_string(),
+                value: "another_value".to_string()
+            }
+        );
     }
 
     #[test]
     fn test_parse_env_file_edge_cases() {
         let content = "KEY_WITH_SPACES = value with spaces\nKEY_WITH_EQUALS=value=with=equals\n  # Indented comment";
         let result = parse_env_file(content);
-        
+
         assert_eq!(result.len(), 3);
-        assert_eq!(result[0], EnvLine::KeyValue { 
-            key: "KEY_WITH_SPACES".to_string(), 
-            value: " value with spaces".to_string() 
-        });
-        assert_eq!(result[1], EnvLine::KeyValue { 
-            key: "KEY_WITH_EQUALS".to_string(), 
-            value: "value=with=equals".to_string() 
-        });
-        assert_eq!(result[2], EnvLine::Comment("  # Indented comment".to_string()));
+        assert_eq!(
+            result[0],
+            EnvLine::KeyValue {
+                key: "KEY_WITH_SPACES".to_string(),
+                value: " value with spaces".to_string()
+            }
+        );
+        assert_eq!(
+            result[1],
+            EnvLine::KeyValue {
+                key: "KEY_WITH_EQUALS".to_string(),
+                value: "value=with=equals".to_string()
+            }
+        );
+        assert_eq!(
+            result[2],
+            EnvLine::Comment("  # Indented comment".to_string())
+        );
     }
 
     #[test]
     fn test_write_env_file() {
         let lines = vec![
-            EnvLine::KeyValue { key: "KEY1".to_string(), value: "value1".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY1".to_string(),
+                value: "value1".to_string(),
+            },
             EnvLine::Comment("# This is a comment".to_string()),
             EnvLine::Empty("".to_string()),
-            EnvLine::KeyValue { key: "KEY2".to_string(), value: "value2".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY2".to_string(),
+                value: "value2".to_string(),
+            },
         ];
-        
+
         let result = write_env_file(&lines);
         assert_eq!(result, "KEY1=value1\n# This is a comment\n\nKEY2=value2\n");
     }
@@ -295,42 +334,51 @@ mod tests {
 
     #[test]
     fn test_write_env_file_single_line() {
-        let lines = vec![
-            EnvLine::KeyValue { key: "KEY".to_string(), value: "value".to_string() },
-        ];
-        
+        let lines = vec![EnvLine::KeyValue {
+            key: "KEY".to_string(),
+            value: "value".to_string(),
+        }];
+
         let result = write_env_file(&lines);
         assert_eq!(result, "KEY=value\n");
     }
 
     #[test]
     fn test_set_env_vars_new_key() {
-        let mut lines = vec![
-            EnvLine::KeyValue { key: "EXISTING".to_string(), value: "value".to_string() }
-        ];
-        
+        let mut lines = vec![EnvLine::KeyValue {
+            key: "EXISTING".to_string(),
+            value: "value".to_string(),
+        }];
+
         set_env_vars(&mut lines, vec!["NEW_KEY=new_value".to_string()]).unwrap();
-        
+
         assert_eq!(lines.len(), 2);
-        assert_eq!(lines[1], EnvLine::KeyValue { 
-            key: "NEW_KEY".to_string(), 
-            value: "new_value".to_string() 
-        });
+        assert_eq!(
+            lines[1],
+            EnvLine::KeyValue {
+                key: "NEW_KEY".to_string(),
+                value: "new_value".to_string()
+            }
+        );
     }
 
     #[test]
     fn test_set_env_vars_update_existing() {
-        let mut lines = vec![
-            EnvLine::KeyValue { key: "KEY".to_string(), value: "old_value".to_string() }
-        ];
-        
+        let mut lines = vec![EnvLine::KeyValue {
+            key: "KEY".to_string(),
+            value: "old_value".to_string(),
+        }];
+
         set_env_vars(&mut lines, vec!["KEY=new_value".to_string()]).unwrap();
-        
+
         assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0], EnvLine::KeyValue { 
-            key: "KEY".to_string(), 
-            value: "new_value".to_string() 
-        });
+        assert_eq!(
+            lines[0],
+            EnvLine::KeyValue {
+                key: "KEY".to_string(),
+                value: "new_value".to_string()
+            }
+        );
     }
 
     #[test]
@@ -338,33 +386,57 @@ mod tests {
         let mut lines = Vec::new();
         let result = set_env_vars(&mut lines, vec!["invalid_pair".to_string()]);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid key=value pair"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid key=value pair"));
     }
 
     #[test]
     fn test_unset_env_vars() {
         let mut lines = vec![
-            EnvLine::KeyValue { key: "KEY1".to_string(), value: "value1".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY1".to_string(),
+                value: "value1".to_string(),
+            },
             EnvLine::Comment("# Comment".to_string()),
-            EnvLine::KeyValue { key: "KEY2".to_string(), value: "value2".to_string() },
-            EnvLine::KeyValue { key: "KEY3".to_string(), value: "value3".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY2".to_string(),
+                value: "value2".to_string(),
+            },
+            EnvLine::KeyValue {
+                key: "KEY3".to_string(),
+                value: "value3".to_string(),
+            },
         ];
-        
+
         unset_env_vars(&mut lines, vec!["KEY1".to_string(), "KEY3".to_string()]);
-        
+
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0], EnvLine::Comment("# Comment".to_string()));
-        assert_eq!(lines[1], EnvLine::KeyValue { key: "KEY2".to_string(), value: "value2".to_string() });
+        assert_eq!(
+            lines[1],
+            EnvLine::KeyValue {
+                key: "KEY2".to_string(),
+                value: "value2".to_string()
+            }
+        );
     }
 
     #[test]
     fn test_get_env_vars() {
         let lines = vec![
-            EnvLine::KeyValue { key: "KEY1".to_string(), value: "value1".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY1".to_string(),
+                value: "value1".to_string(),
+            },
             EnvLine::Comment("# Comment".to_string()),
-            EnvLine::KeyValue { key: "KEY2".to_string(), value: "value2".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY2".to_string(),
+                value: "value2".to_string(),
+            },
         ];
-        
+
         let result = get_env_vars(&lines);
         assert_eq!(result.len(), 2);
         assert_eq!(result.get("KEY1"), Some(&"value1".to_string()));
@@ -374,11 +446,17 @@ mod tests {
     #[test]
     fn test_get_env_keys() {
         let lines = vec![
-            EnvLine::KeyValue { key: "KEY1".to_string(), value: "value1".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY1".to_string(),
+                value: "value1".to_string(),
+            },
             EnvLine::Comment("# Comment".to_string()),
-            EnvLine::KeyValue { key: "KEY2".to_string(), value: "value2".to_string() },
+            EnvLine::KeyValue {
+                key: "KEY2".to_string(),
+                value: "value2".to_string(),
+            },
         ];
-        
+
         let result = get_env_keys(&lines);
         assert_eq!(result, vec!["KEY1", "KEY2"]);
     }
