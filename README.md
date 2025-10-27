@@ -1,24 +1,24 @@
-# dotenvk
+# durable-appconfig-dotenv
 
 A pragmatic CLI tool for managing `.env` files with a focus on simplicity, security, and reliability.
 
 ## Overview
 
-`dotenvk` provides a straightforward command-line interface for editing environment files. Built with Rust for performance and safety, it handles common tasks like setting variables, generating secure passwords, and exporting configurations.
+`durable-appconfig-dotenv` provides a straightforward command-line interface for editing environment files. Built with Rust for performance and safety, it handles common tasks like setting variables, generating secure passwords, and exporting configurations.
 
 ![Demo](demo/demo.gif)
 
 ## Installation
 
 ```bash
-cargo install dotenvk
+cargo install durable-appconfig-dotenv
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/durableprogramming/dotenvk.git
-cd dotenvk
+git clone https://github.com/durableprogramming/durable-appconfig-dotenv.git
+cd durable-appconfig-dotenv
 cargo build --release
 ```
 
@@ -28,17 +28,17 @@ cargo build --release
 
 Set environment variables:
 ```bash
-dotenvk set DATABASE_URL=postgres://localhost/mydb API_KEY=secret123
+durable-appconfig-dotenv set DATABASE_URL=postgres://localhost/mydb API_KEY=secret123
 ```
 
 Remove variables:
 ```bash
-dotenvk unset OLD_KEY DEPRECATED_VAR
+durable-appconfig-dotenv unset OLD_KEY DEPRECATED_VAR
 ```
 
 List all keys:
 ```bash
-dotenvk keys
+durable-appconfig-dotenv keys
 ```
 
 ### Password Generation
@@ -46,36 +46,36 @@ dotenvk keys
 Generate secure random passwords:
 ```bash
 # Basic 32-character password (letters only)
-dotenvk randomize API_SECRET
+durable-appconfig-dotenv randomize API_SECRET
 
 # Include numbers and symbols
-dotenvk randomize DB_PASSWORD --numeric --symbol --length 48
+durable-appconfig-dotenv randomize DB_PASSWORD --numeric --symbol --length 48
 
 # Generate XKCD-style passphrase (requires xkcdpass)
-dotenvk randomize ADMIN_PASSPHRASE --xkcd
+durable-appconfig-dotenv randomize ADMIN_PASSPHRASE --xkcd
 ```
 
 ### Export Formats
 
 Export as bash script:
 ```bash
-dotenvk export
+durable-appconfig-dotenv export
 # or
-dotenvk export --format bash
+durable-appconfig-dotenv export --format bash
 ```
 
 Export as JSON:
 ```bash
-dotenvk export --format json
+durable-appconfig-dotenv export --format json
 ```
 
 ### Working with Different Files
 
-By default, `dotenvk` operates on `.env` in the current directory. Use `-f` or `--file` to specify a different file:
+By default, `durable-appconfig-dotenv` operates on `.env` in the current directory. Use `-f` or `--file` to specify a different file:
 
 ```bash
-dotenvk -f .env.production set NODE_ENV=production
-dotenvk -f config/.env.local keys
+durable-appconfig-dotenv -f .env.production set NODE_ENV=production
+durable-appconfig-dotenv -f config/.env.local keys
 ```
 
 ## Features
@@ -102,32 +102,32 @@ This tool embodies a practical approach to software development:
 
 ```bash
 # Set up a new project
-dotenvk set NODE_ENV=development PORT=3000
-dotenvk randomize JWT_SECRET SESSION_SECRET --length 64 --symbol
+durable-appconfig-dotenv set NODE_ENV=development PORT=3000
+durable-appconfig-dotenv randomize JWT_SECRET SESSION_SECRET --length 64 --symbol
 
 # Export for local development
-eval $(dotenvk export)
+eval $(durable-appconfig-dotenv export)
 ```
 
 ### Production Deployment
 
 ```bash
 # Generate secure production credentials
-dotenvk -f .env.production randomize \
+durable-appconfig-dotenv -f .env.production randomize \
   DATABASE_PASSWORD \
   REDIS_PASSWORD \
   API_SECRET \
   --length 48 --numeric --symbol
 
 # Export as JSON for container orchestration
-dotenvk -f .env.production export --format json > secrets.json
+durable-appconfig-dotenv -f .env.production export --format json > secrets.json
 ```
 
 ### Password Rotation
 
 ```bash
 # Rotate all password fields
-dotenvk randomize $(dotenvk keys | grep -E '(PASSWORD|SECRET|KEY)')
+durable-appconfig-dotenv randomize $(durable-appconfig-dotenv keys | grep -E '(PASSWORD|SECRET|KEY)')
 ```
 
 ## Contributing

@@ -1,4 +1,4 @@
-// Main entry point for dotenvk - a CLI tool for managing .env files.
+// Main entry point for durable-appconfig-dotenv - a CLI tool for managing .env files.
 //
 // This module implements the command-line interface and dispatches commands to the appropriate
 // handlers in the library module. It provides subcommands for setting/unsetting environment
@@ -10,7 +10,7 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use dotenvk::*;
+use durable_appconfig_dotenv::*;
 use std::path::PathBuf;
 
 fn main() -> Result<()> {

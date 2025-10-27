@@ -1,13 +1,13 @@
 [package]
-name = "dotenvk"
+name = "durable-appconfig-dotenv"
 version = "0.1.4"
 edition = "2021"
 authors = ["Durable Programming, LLC"]
 license = "MIT"
 description = "A pragmatic CLI tool for managing .env files with a focus on simplicity, security, and reliability"
 readme = "README.md"
-homepage = "https://github.com/durableprogramming/dotenvk"
-repository = "https://github.com/durableprogramming/dotenvk"
+homepage = "https://github.com/durableprogramming/durable-appconfig-dotenv"
+repository = "https://github.com/durableprogramming/durable-appconfig-dotenv"
 keywords = ["env", "environment", "cli", "dotenv", "config"]
 categories = ["command-line-utilities", "development-tools"]
 
@@ -38,17 +38,17 @@ maintainer = "Durable Programming, LLC"
 copyright = "2024, Durable Programming, LLC"
 license-file = ["LICENSE.md", "4"]
 extended-description = """\
-A pragmatic CLI tool for managing .env files with a focus on simplicity, 
-security, and reliability. Dotenvk provides secure environment variable 
+A pragmatic CLI tool for managing .env files with a focus on simplicity,
+security, and reliability. durable-appconfig-dotenv provides secure environment variable
 management with validation, templating, and multiple output formats."""
 depends = ""
 section = "utils"
 priority = "optional"
 assets = [
-    ["target/release/dotenvk", "usr/bin/", "755"],
-    ["README.md", "usr/share/doc/dotenvk/README", "644"],
+    ["target/release/durable-appconfig-dotenv", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/durable-appconfig-dotenv/README", "644"],
 ]
 
 [[bin]]
-name = "dotenvk"
+name = "durable-appconfig-dotenv"
 path = "src/main.rs"
